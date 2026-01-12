@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -22,6 +23,10 @@ struct ImmichSyncApp: App {
     init() {
         let store = BackupFolderStore()
         _folderStore = StateObject(wrappedValue: store)
+        if let url = Bundle.module.url(forResource: "AppIcon", withExtension: "png"),
+           let image = NSImage(contentsOf: url) {
+            NSApplication.shared.applicationIconImage = image
+        }
         if CommandLine.arguments.contains("--sync-now") {
             DispatchQueue.main.async {
                 store.startDownloadAllAssets()
@@ -43,6 +48,7 @@ struct ImmichSyncApp: App {
             MenuBarLabelView()
                 .environmentObject(folderStore)
         }
+        .menuBarExtraStyle(.menu)
     }
 }
 
@@ -51,12 +57,13 @@ struct MenuBarLabelView: View {
 
     var body: some View {
         let state = syncState()
-        return HStack(spacing: 6) {
-            menuIcon()
-                .renderingMode(.template)
-                .foregroundStyle(state.color)
+        return Label {
             Text("ImmichSync")
+        } icon: {
+            Image(systemName: state.symbol)
         }
+        .labelStyle(.titleAndIcon)
+        .foregroundStyle(state.color)
     }
 
     private func syncState() -> (symbol: String, color: Color) {
@@ -69,11 +76,5 @@ struct MenuBarLabelView: View {
         return ("circle.dotted", .secondary)
     }
 
-    private func menuIcon() -> Image {
-        if let url = Bundle.module.url(forResource: "AppIcon", withExtension: "png"),
-           let image = NSImage(contentsOf: url) {
-            return Image(nsImage: image)
-        }
-        return Image(systemName: "circle.dotted")
-    }
+    
 }

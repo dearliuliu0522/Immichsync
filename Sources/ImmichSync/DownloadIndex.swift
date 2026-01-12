@@ -24,6 +24,10 @@ final class DownloadIndex {
         assetIDs.insert(id)
     }
 
+    func count() -> Int {
+        assetIDs.count
+    }
+
     func save() {
         let array = Array(assetIDs)
         if let data = try? JSONSerialization.data(withJSONObject: array, options: []) {

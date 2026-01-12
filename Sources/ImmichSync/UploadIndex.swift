@@ -24,6 +24,10 @@ final class UploadIndex {
         fileIDs[path] = assetID
     }
 
+    func count() -> Int {
+        fileIDs.count
+    }
+
     func save() {
         if let data = try? JSONSerialization.data(withJSONObject: fileIDs, options: []) {
             try? data.write(to: fileURL, options: [.atomic])

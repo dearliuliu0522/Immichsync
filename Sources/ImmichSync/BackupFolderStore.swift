@@ -59,6 +59,8 @@ final class BackupFolderStore: ObservableObject {
     @Published private(set) var speedText = ""
     @Published private(set) var downloadSpeedSamples: [Double] = []
     @Published private(set) var uploadSpeedSamples: [Double] = []
+    @Published private(set) var downloadedCount: Int = 0
+    @Published private(set) var uploadedCount: Int = 0
     @Published private(set) var lastError: String?
     @Published private(set) var lastSyncDate: Date?
     @Published private(set) var isUnlocked = false
@@ -147,6 +149,8 @@ final class BackupFolderStore: ObservableObject {
         configureUploadMonitoring()
         launchAgentInstalled = FileManager.default.fileExists(atPath: launchAgentPlistURL().path)
         isUnlocked = !requireTouchID
+        downloadedCount = downloadIndex.count()
+        uploadedCount = uploadIndex.count()
     }
 
     func updateServerURL(_ value: String) {
@@ -415,6 +419,8 @@ final class BackupFolderStore: ObservableObject {
         speedText = ""
         downloadSpeedSamples = []
         uploadSpeedSamples = []
+        downloadedCount = 0
+        uploadedCount = 0
         lastError = nil
         lastSyncDate = nil
         isUnlocked = true
@@ -805,12 +811,13 @@ private extension BackupFolderStore {
 
         downloadIndex.save()
         defaults.set(Date(), forKey: Keys.lastSyncDate)
-        let downloadedCount = downloaded
-        let skippedCount = skipped
+        let downloadedTotal = downloaded
+        let skippedTotal = skipped
         await MainActor.run {
             lastSyncDate = Date()
-            progressText = "Done. Downloaded \(downloadedCount), skipped \(skippedCount)."
+            progressText = "Done. Downloaded \(downloadedTotal), skipped \(skippedTotal)."
             progressValue = 1
+            downloadedCount = downloadIndex.count()
         }
     }
 
@@ -908,11 +915,12 @@ private extension BackupFolderStore {
             }
         }
 
-        let uploadedCount = uploaded
-        let skippedCount = skipped
+        let uploadedTotal = uploaded
+        let skippedTotal = skipped
         await MainActor.run {
-            uploadProgressText = "Done. Uploaded \(uploadedCount), skipped \(skippedCount)."
+            uploadProgressText = "Done. Uploaded \(uploadedTotal), skipped \(skippedTotal)."
             uploadSpeedText = currentUploadSpeedText()
+            uploadedCount = uploadIndex.count()
         }
     }
 

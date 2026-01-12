@@ -3,7 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject private var folderStore: BackupFolderStore
     @State private var apiKeyDraft = ""
-    @State private var selectedSection: AppSection = .download
+    @State private var selectedSection: AppSection = .dashboard
     @State private var onboardingStep: OnboardingStep = .credentials
 
     var body: some View {
@@ -45,6 +45,7 @@ struct ContentView: View {
     private var sidebar: some View {
         List(selection: $selectedSection) {
             Section("Core") {
+                Label("Dashboard", systemImage: "chart.bar.xaxis").tag(AppSection.dashboard)
                 Label("Download", systemImage: "arrow.down.circle").tag(AppSection.download)
                 Label("Upload", systemImage: "arrow.up.circle").tag(AppSection.upload)
             }
@@ -54,6 +55,7 @@ struct ContentView: View {
                 Label("Background", systemImage: "bolt.badge.clock").tag(AppSection.background)
             }
             Section("Insights") {
+                Label("Analytics", systemImage: "waveform.path.ecg").tag(AppSection.analytics)
                 Label("Server", systemImage: "server.rack").tag(AppSection.server)
                 Label("Duplicates", systemImage: "square.on.square").tag(AppSection.duplicates)
             }
@@ -71,6 +73,8 @@ struct ContentView: View {
                 header
 
                 switch selectedSection {
+                case .dashboard:
+                    dashboardSection
                 case .download:
                     downloadSection
                 case .upload:
@@ -81,6 +85,8 @@ struct ContentView: View {
                     scheduleSection
                 case .background:
                     backgroundSection
+                case .analytics:
+                    analyticsSection
                 case .server:
                     serverSection
                 case .duplicates:
@@ -141,6 +147,91 @@ struct ContentView: View {
             .background(color.opacity(0.15))
             .foregroundStyle(color)
             .clipShape(Capsule())
+    }
+
+    private var dashboardSection: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            SectionCard(title: "Overview", subtitle: "At-a-glance sync health.") {
+                HStack(spacing: 16) {
+                    statTile(title: "Downloaded", value: "\(folderStore.downloadedCount)", subtitle: "assets", color: .blue)
+                    statTile(title: "Uploaded", value: "\(folderStore.uploadedCount)", subtitle: "assets", color: .orange)
+                    statTile(title: "Duplicates", value: "\(folderStore.duplicatesCount)", subtitle: "assets", color: .purple)
+                }
+            }
+
+            SectionCard(title: "Status", subtitle: "Latest activity and next steps.") {
+                VStack(alignment: .leading, spacing: 12) {
+                    if let lastSync = folderStore.lastSyncDate {
+                        Text("Last sync: \(lastSync.formatted(date: .abbreviated, time: .shortened))")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("No syncs yet.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if folderStore.isDownloading {
+                        Text(folderStore.progressText.isEmpty ? "Downloading..." : folderStore.progressText)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    } else if folderStore.isUploading {
+                        Text(folderStore.uploadProgressText.isEmpty ? "Uploading..." : folderStore.uploadProgressText)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    HStack(spacing: 12) {
+                        Spacer()
+                        Button("Sync Now") {
+                            folderStore.startDownloadAllAssets()
+                        }
+                        .disabled(folderStore.isDownloading)
+
+                        Button("Upload Now") {
+                            folderStore.startUploadNow()
+                        }
+                        .disabled(folderStore.isUploading)
+                    }
+                }
+            }
+        }
+    }
+
+    private var analyticsSection: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            SectionCard(title: "Download Analytics", subtitle: "Live speed and throughput.") {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(folderStore.speedText.isEmpty ? "No download activity yet." : folderStore.speedText)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+
+                    if !folderStore.downloadSpeedSamples.isEmpty {
+                        SpeedGraphView(samples: folderStore.downloadSpeedSamples, color: .blue)
+                    }
+
+                    Text("Average: \(averageText(folderStore.downloadSpeedSamples))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            SectionCard(title: "Upload Analytics", subtitle: "Live speed and throughput.") {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(folderStore.uploadSpeedText.isEmpty ? "No upload activity yet." : folderStore.uploadSpeedText)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+
+                    if !folderStore.uploadSpeedSamples.isEmpty {
+                        SpeedGraphView(samples: folderStore.uploadSpeedSamples, color: .orange)
+                    }
+
+                    Text("Average: \(averageText(folderStore.uploadSpeedSamples))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
     }
 
     private var connectionSection: some View {
@@ -552,6 +643,32 @@ struct ContentView: View {
         }
     }
 
+    private func statTile(title: String, value: String, subtitle: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(color)
+            Text(subtitle)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(color.opacity(0.08))
+        )
+    }
+
+    private func averageText(_ samples: [Double]) -> String {
+        guard !samples.isEmpty else { return "0.00 MB/s" }
+        let avg = samples.reduce(0, +) / Double(samples.count)
+        return String(format: "%.2f MB/s", avg)
+    }
+
     private var lockView: some View {
         VStack(alignment: .center, spacing: 12) {
             LogoView(size: 56)
@@ -702,7 +819,7 @@ struct ContentView: View {
                 HStack {
                     Spacer()
                     Button("Open Dashboard") {
-                        selectedSection = .download
+                        selectedSection = .dashboard
                     }
                 }
             }
@@ -717,11 +834,13 @@ struct ContentView: View {
 }
 
 private enum AppSection: Hashable {
+    case dashboard
     case download
     case upload
     case connection
     case schedule
     case background
+    case analytics
     case server
     case duplicates
     case reset
