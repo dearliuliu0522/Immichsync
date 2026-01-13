@@ -155,6 +155,7 @@ final class BackupFolderStore: ObservableObject {
     private var powerMonitorTimer: Timer?
     private var pendingErrorLogs: [String] = []
     private var connectionCheckTask: Task<Void, Never>?
+    private var connectionDebounceTimer: Timer?
     private var bytesUploaded: Int64 = 0
     private var uploadStartDate: Date?
     private let deviceID: String
@@ -275,7 +276,7 @@ final class BackupFolderStore: ObservableObject {
     func updateServerURL(_ value: String) {
         serverURL = value
         defaults.set(value, forKey: Keys.serverURL)
-        checkConnection()
+        scheduleConnectionCheck()
     }
 
     func updateApiKey(_ value: String) {
@@ -284,7 +285,14 @@ final class BackupFolderStore: ObservableObject {
         if useKeychain {
             KeychainStore.write(value, service: KeychainKeys.service, account: KeychainKeys.apiKeyAccount)
         }
-        checkConnection()
+        scheduleConnectionCheck()
+    }
+
+    private func scheduleConnectionCheck() {
+        connectionDebounceTimer?.invalidate()
+        connectionDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.6, repeats: false) { [weak self] _ in
+            self?.checkConnection()
+        }
     }
 
     func updateUseKeychain(_ value: Bool) {
@@ -602,6 +610,8 @@ final class BackupFolderStore: ObservableObject {
         uploadScanTimer = nil
         powerMonitorTimer?.invalidate()
         powerMonitorTimer = nil
+        connectionDebounceTimer?.invalidate()
+        connectionDebounceTimer = nil
 
         KeychainStore.delete(service: KeychainKeys.service, account: KeychainKeys.apiKeyAccount)
         KeychainStore.delete(service: LegacyKeychainKeys.service, account: LegacyKeychainKeys.apiKeyAccount)
