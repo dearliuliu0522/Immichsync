@@ -1,7 +1,7 @@
 import Foundation
 
-final class DownloadIndex {
-    private var assetIDs: Set<String> = []
+final class ServerDuplicateCache {
+    private var entries: [String: Bool] = [:]
     private let fileURL: URL
 
     init() {
@@ -9,37 +9,28 @@ final class DownloadIndex {
         let dir = base?.appendingPathComponent("ImmichSync", isDirectory: true)
         if let dir {
             try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            fileURL = dir.appendingPathComponent("downloaded-assets.json")
+            fileURL = dir.appendingPathComponent("server-duplicate-cache.json")
         } else {
-            fileURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("downloaded-assets.json")
+            fileURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("server-duplicate-cache.json")
         }
         load()
     }
 
-    func contains(_ id: String) -> Bool {
-        assetIDs.contains(id)
+    func lookup(key: String) -> Bool? {
+        entries[key]
     }
 
-    func add(_ id: String) {
-        assetIDs.insert(id)
-    }
-
-    func remove(_ id: String) {
-        assetIDs.remove(id)
-    }
-
-    func count() -> Int {
-        assetIDs.count
+    func store(key: String, isDuplicate: Bool) {
+        entries[key] = isDuplicate
     }
 
     func clear() {
-        assetIDs.removeAll()
+        entries.removeAll()
         save()
     }
 
     func save() {
-        let array = Array(assetIDs)
-        if let data = try? JSONSerialization.data(withJSONObject: array, options: []) {
+        if let data = try? JSONSerialization.data(withJSONObject: entries, options: []) {
             try? data.write(to: fileURL, options: [.atomic])
         }
     }
@@ -47,9 +38,9 @@ final class DownloadIndex {
     private func load() {
         guard let data = try? Data(contentsOf: fileURL),
               let json = try? JSONSerialization.jsonObject(with: data, options: []),
-              let array = json as? [String] else {
+              let dict = json as? [String: Bool] else {
             return
         }
-        assetIDs = Set(array)
+        entries = dict
     }
 }

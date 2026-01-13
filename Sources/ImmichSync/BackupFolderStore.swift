@@ -147,6 +147,8 @@ final class BackupFolderStore: ObservableObject {
     private var downloadStartDate: Date?
     private var pendingIndexFlush = 0
     private let uploadIndex = UploadIndex()
+    private let serverDuplicateCache = ServerDuplicateCache()
+    private var pendingServerDuplicateFlush = 0
     private var uploadTask: Task<Void, Never>?
     private var uploadMonitor: DispatchSourceFileSystemObject?
     private var uploadMonitorFD: CInt = -1
@@ -408,6 +410,9 @@ final class BackupFolderStore: ObservableObject {
         selectedURL = nil
         defaults.removeObject(forKey: Keys.bookmark)
         defaults.removeObject(forKey: Keys.path)
+        defaults.removeObject(forKey: Keys.lastDownloadFolderPath)
+        downloadIndex.clear()
+        downloadedCount = 0
     }
 
     func clearUploadSelection() {
@@ -561,10 +566,25 @@ final class BackupFolderStore: ObservableObject {
 
     func clearUploadHistory() {
         uploadIndex.clear()
+        serverDuplicateCache.clear()
+        pendingServerDuplicateFlush = 0
         uploadQueue = []
         uploadedCount = 0
         uploadProgressText = "Upload history cleared."
         uploadLastError = nil
+    }
+
+    func clearDownloadHistory() {
+        downloadIndex.clear()
+        downloadedCount = 0
+        progressText = "Download history cleared."
+        lastError = nil
+    }
+
+    func resetServerDuplicateCache() {
+        serverDuplicateCache.clear()
+        pendingServerDuplicateFlush = 0
+        uploadProgressText = "Server duplicate cache cleared."
     }
 
     func revealInFinder() {
@@ -657,8 +677,9 @@ final class BackupFolderStore: ObservableObject {
             defaults.removeObject(forKey: key)
         }
 
-        downloadIndex.save()
+        downloadIndex.clear()
         uploadIndex.save()
+        serverDuplicateCache.clear()
 
         selectedURL = nil
         uploadFolderURL = nil
@@ -1406,10 +1427,16 @@ private extension BackupFolderStore {
     }
 
     func shouldSkip(assetID: String, destinationURL: URL) -> Bool {
+        let fileExists = FileManager.default.fileExists(atPath: destinationURL.path)
         if downloadIndex.contains(assetID) {
-            return true
+            if fileExists {
+                return true
+            }
+            downloadIndex.remove(assetID)
+            downloadIndex.save()
+            return false
         }
-        if FileManager.default.fileExists(atPath: destinationURL.path) {
+        if fileExists {
             downloadIndex.add(assetID)
             return true
         }
@@ -1553,6 +1580,11 @@ private extension BackupFolderStore {
         let createdAt = (attributes[.creationDate] as? Date) ?? Date()
         let modifiedAt = (attributes[.modificationDate] as? Date) ?? createdAt
         let fileSize = (attributes[.size] as? NSNumber)?.int64Value ?? 0
+        let cacheKey = makeServerDuplicateCacheKey(path: fileURL.path, size: fileSize, modifiedAt: modifiedAt)
+        if let cached = serverDuplicateCache.lookup(key: cacheKey) {
+            return cached
+        }
+
         let checksum = sha1Hex(for: fileURL)
 
         let formatter = ISO8601DateFormatter()
@@ -1579,10 +1611,21 @@ private extension BackupFolderStore {
             if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
                 return false
             }
-            return parseServerDuplicateCheck(from: data)
+            let isDuplicate = parseServerDuplicateCheck(from: data)
+            serverDuplicateCache.store(key: cacheKey, isDuplicate: isDuplicate)
+            pendingServerDuplicateFlush += 1
+            if pendingServerDuplicateFlush >= 25 {
+                serverDuplicateCache.save()
+                pendingServerDuplicateFlush = 0
+            }
+            return isDuplicate
         } catch {
             return false
         }
+    }
+
+    func makeServerDuplicateCacheKey(path: String, size: Int64, modifiedAt: Date) -> String {
+        "\(path)|\(size)|\(modifiedAt.timeIntervalSince1970)"
     }
 
     func parseServerDuplicateCheck(from data: Data) -> Bool {

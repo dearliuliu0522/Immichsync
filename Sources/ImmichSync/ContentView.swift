@@ -462,6 +462,11 @@ struct ContentView: View {
                             folderStore.stopDownload()
                         }
                         .disabled(!folderStore.isDownloading)
+
+                        Button("Reset Download History") {
+                            folderStore.clearDownloadHistory()
+                        }
+                        .disabled(folderStore.isDownloading)
                     }
 
                     if !folderStore.progressText.isEmpty {
@@ -573,6 +578,11 @@ struct ContentView: View {
                     get: { folderStore.checkServerDuplicatesOnUpload },
                     set: { folderStore.updateCheckServerDuplicatesOnUpload($0) }
                 ))
+
+                Button("Reset server duplicate cache") {
+                    folderStore.resetServerDuplicateCache()
+                }
+                .disabled(folderStore.isUploading)
 
                 HStack(spacing: 16) {
                     Toggle("Upload photos", isOn: Binding(
