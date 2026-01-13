@@ -1,15 +1,14 @@
 # ImmichSync
 
-macOS app to sync Immich assets to a local folder and optionally upload new files to your server.
+ImmichSync is a macOS app that syncs Immich assets to a local folder and can automatically upload new files back to your server.
 
-## Features
+## Install (unsigned build)
 
-- Download assets with filters, folder structure, and optional sidecar metadata
-- Upload watcher with queue and live sync
-- Scheduling, background launch agent, and menu bar status
-- Touch ID gated access (optional)
+1) Download `ImmichSync.dmg` or `ImmichSync.zip` from GitHub Release assets.  
+2) Open the DMG/ZIP and drag `ImmichSync.app` to `/Applications`.  
+3) If macOS blocks it, right‑click the app → **Open**, or allow it in System Settings → Privacy & Security.
 
-## Run (dev)
+## Build and run locally (dev)
 
 ```bash
 swift run
@@ -21,37 +20,35 @@ swift run
 ./scripts/build-app.sh
 ```
 
-The app bundle will be at `dist/ImmichSync.app`. You can drag it into `/Applications`.
+The app bundle will be at `dist/ImmichSync.app`.
 
-## Install (unsigned build)
+## How it works and configuration
 
-1) Download `ImmichSync.dmg` or `ImmichSync.zip` from the GitHub Release assets.  
-2) Open the DMG/ZIP and drag `ImmichSync.app` to `/Applications`.  
-3) If macOS blocks it, right‑click the app → **Open**, or allow it in System Settings → Privacy & Security.
+### Core features
+- Download assets with filters (photos/videos), optional album filter, and folder structure rules.
+- Upload watcher for a local folder (with queue + live sync).
+- Scheduling and background launch agent support.
+- Menu bar status with sync controls.
 
-## Package release assets (unsigned)
+### Credentials and security
+- API key is saved locally only when you click **Save API Key**.
+- Keychain storage is available only when Touch ID is enabled.
+- Touch ID gating is optional and protects access to the app UI.
 
+### Storage locations
+- Preferences: `UserDefaults`
+- App data: `~/Library/Application Support/ImmichSync`
+- Keychain entry: service name `ImmichSync` (if enabled)
+
+### Release packaging (unsigned)
 ```bash
 ./scripts/package-release.sh
 ```
+Creates `dist/ImmichSync.zip` and `dist/ImmichSync.dmg`.
 
-This creates `dist/ImmichSync.zip` and `dist/ImmichSync.dmg`.
-
-## GitHub Releases (automatic)
-
+### GitHub Releases (automatic)
 Push a tag like `v0.1.0` and GitHub Actions will build and attach the ZIP/DMG to a published release.
-
 ```bash
 git tag v0.1.0
 git push origin v0.1.0
 ```
-
-## Installing unsigned builds
-
-Unsigned apps will trigger Gatekeeper. Users can right‑click the app and choose **Open**, or use System Settings → Privacy & Security to allow it. For a warning‑free experience, the app must be signed and notarized.
-
-## Notes
-
-- The app stores security‑scoped bookmarks for folder access across launches.
-- API keys can be stored in Keychain only when Touch ID is enabled and the user saves them.
-- Downloaded and uploaded asset IDs are tracked to enable incremental sync.
