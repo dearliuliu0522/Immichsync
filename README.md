@@ -41,7 +41,14 @@ Thanks to the Immich team for creating such a wonderful tool. ImmichSync is a co
 1) Download `ImmichSync.dmg` or `ImmichSync.zip` from the latest release:  
    https://github.com/bjoernch/Immichsync/releases/latest
 2) Open the DMG/ZIP and drag `ImmichSync.app` to `/Applications`.  
-3) If macOS blocks it, right‑click the app → **Open**, or allow it in System Settings → Privacy & Security.
+3) Important: copy it into `/Applications` before running any terminal commands or opening the app.
+4) If macOS says the app is damaged, run:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/ImmichSync.app
+```
+
+5) If macOS blocks it, right‑click the app → **Open**, or allow it in System Settings → Privacy & Security.
 
 ### If macOS says the app is damaged while copying to /Applications
 
